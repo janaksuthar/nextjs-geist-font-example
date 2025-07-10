@@ -3,6 +3,9 @@ from streamlit.components.v1 import html
 import pandas as pd
 from datetime import datetime
 import io
+import base64
+import requests
+import json
 
 GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeUizh9UXQIBD3ZAWf-6XXYN-VGgePf88dAw0PY7ykQ0ADMag/viewform?usp=dialog"
 
@@ -23,6 +26,119 @@ if "student_records" not in st.session_state:
     st.session_state.student_records = []
 if "current_session_saved" not in st.session_state:
     st.session_state.current_session_saved = False
+
+# GitHub upload placeholders
+GITHUB_REPO = "https://api.github.com/repos/your-username/your-repo"
+GITHUB_BRANCH = "main"
+GITHUB_FILE_PATH = "reports/quiz_monitoring_report.xlsx"
+GITHUB_TOKEN = "your_personal_access_token"
+
+def upload_to_github(file_bytes):
+    """Upload Excel file bytes to GitHub repo"""
+    url = f"{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    # Check if file exists to get sha
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        sha = response.json()["sha"]
+    else:
+        sha = None
+
+    content = base64.b64encode(file_bytes).decode("utf-8")
+    data = {
+        "message": f"Update quiz monitoring report {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "content": content,
+        "branch": GITHUB_BRANCH
+    }
+    if sha:
+        data["sha"] = sha
+
+    put_response = requests.put(url, headers=headers, data=json.dumps(data))
+    if put_response.status_code in [200, 201]:
+        return True, "File uploaded successfully to GitHub."
+    else:
+        return False, f"Failed to upload file: {put_response.text}"
+
+# Modify instructor_dashboard to add upload button
+def instructor_dashboard():
+    """Instructor dashboard to view and download records"""
+    st.title("📊 Instructor Dashboard")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader("Student Quiz Monitoring Records")
+    with col2:
+        if st.button("🚪 Logout"):
+            st.session_state.is_instructor = False
+            st.rerun()
+    
+    if st.session_state.student_records:
+        # Display records in a table
+        df = pd.DataFrame(st.session_state.student_records)
+        st.dataframe(df, use_container_width=True)
+        
+        # Statistics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Students", len(df))
+        with col2:
+            st.metric("Students with Tab Changes", len(df[df["Tab Changes"] > 0]))
+        with col3:
+            st.metric("Average Tab Changes", f"{df['Tab Changes'].mean():.1f}")
+        with col4:
+            st.metric("Max Tab Changes", df["Tab Changes"].max())
+        
+        # Download Excel file
+        st.subheader("📥 Download Records")
+        
+        # Create Excel file in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Student Records', index=False)
+            
+            # Add summary sheet
+            summary_data = {
+                "Metric": ["Total Students", "Students with Tab Changes", "Students without Tab Changes", "Average Tab Changes", "Maximum Tab Changes"],
+                "Value": [
+                    len(df),
+                    len(df[df["Tab Changes"] > 0]),
+                    len(df[df["Tab Changes"] == 0]),
+                    f"{df['Tab Changes'].mean():.2f}",
+                    df["Tab Changes"].max()
+                ]
+            }
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+        
+        excel_data = output.getvalue()
+        
+        st.download_button(
+            label="📊 Download Excel Report",
+            data=excel_data,
+            file_name=f"quiz_monitoring_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        
+        # Upload to GitHub button
+        if st.button("⬆️ Upload Excel Report to GitHub"):
+            success, message = upload_to_github(excel_data)
+            if success:
+                st.success(message)
+            else:
+                st.error(message)
+        
+        # Clear all records button
+        if st.button("🗑️ Clear All Records", type="secondary"):
+            st.session_state.student_records = []
+            st.success("All records cleared!")
+            st.rerun()
+            
+    else:
+        st.info("No student records available yet.")
 
 def save_student_record():
     """Save current student session to records"""
@@ -331,10 +447,10 @@ else:
         
         # Button to simulate tab change for demo
         col1, col2, col3 = st.columns([1, 1, 1])
-        # with col2:
-        #     if st.button("🔄 Simulate Tab Change (Demo)", use_container_width=True):
-        #         st.session_state.tab_change_count += 1
-        #         st.rerun()
+        with col2:
+            if st.button("🔄 Simulate Tab Change (Demo)", use_container_width=True):
+                st.session_state.tab_change_count += 1
+                st.rerun()
         
         # Finish quiz button (saves record)
         if st.button("✅ Finish Quiz", use_container_width=True, type="primary"):
