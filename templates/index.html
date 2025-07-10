@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz Wrapper</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    iframe {
+      flex-grow: 1;
+      border: none;
+      width: 100%;
+      min-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="googleForm" src="{{ form_url }}" allowfullscreen></iframe>
+
+  <script>
+    function handleTabChange() {
+      // Redirect to auto-submitted page on tab change or blur
+      window.location.href = "/auto-submitted";
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        handleTabChange();
+      }
+    });
+
+    window.addEventListener("blur", () => {
+      handleTabChange();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      // Optional: handle page unload if needed
+    });
+  </script>
+</body>
+</html>
