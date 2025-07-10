@@ -331,10 +331,10 @@ else:
         
         # Button to simulate tab change for demo
         col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            if st.button("🔄 Simulate Tab Change (Demo)", use_container_width=True):
-                st.session_state.tab_change_count += 1
-                st.rerun()
+        # with col2:
+        #     if st.button("🔄 Simulate Tab Change (Demo)", use_container_width=True):
+        #         st.session_state.tab_change_count += 1
+        #         st.rerun()
         
         # Finish quiz button (saves record)
         if st.button("✅ Finish Quiz", use_container_width=True, type="primary"):
